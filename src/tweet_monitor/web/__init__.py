@@ -6,7 +6,7 @@ import psycopg2
 import psycopg2.extras
 from flask import Flask, g, render_template, request, jsonify
 
-from .db import get_pg_conn
+from ..db import get_pg_conn
 
 PER_PAGE = 20
 app = Flask(__name__)
