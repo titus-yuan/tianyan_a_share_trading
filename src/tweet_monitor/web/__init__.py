@@ -168,6 +168,7 @@ def tweet_detail(tweet_id):
         "id": row["id"],
         "tweet_id": row["tweet_id"],
         "username": row["username"],
+        "display_name": row.get("display_name", ""),
         "content": row["content"],
         "posted_at": row["posted_at"].isoformat() if row["posted_at"] else None,
         "source": row["source"],

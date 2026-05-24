@@ -191,7 +191,10 @@
         </button>
       </div>
 
-      <div class="text-text-muted text-xs mb-1 flex-shrink-0">发布</div>
+      <div class="text-text-muted text-xs mb-1 flex-shrink-0">显示名</div>
+      <div id="detail-display-name" class="text-white text-sm font-medium mb-4 flex-shrink-0"></div>
+
+      <div class="text-text-muted text-xs mb-1 flex-shrink-0">发布时间</div>
       <div id="detail-time" class="text-white text-sm mb-4 flex-shrink-0"></div>
 
       <div class="text-text-muted text-xs mb-1 flex-shrink-0">来源</div>
@@ -253,7 +256,13 @@
         .then(data => {
           document.getElementById('detail-placeholder').classList.add('hidden');
           document.getElementById('detail-content').classList.remove('hidden');
-          document.getElementById('detail-time').textContent = data.posted_at || '—';
+          // Display name: "STOCK调研公社 @STOCK6688"
+          const dn = data.display_name || '';
+          document.getElementById('detail-display-name').textContent =
+            dn ? dn + ' @' + data.username : '@' + data.username;
+          // Format ISO time → YYYY-MM-DD HH:MM
+          const t = data.posted_at ? data.posted_at.replace('T', ' ').substring(0, 16) : '—';
+          document.getElementById('detail-time').textContent = t;
           document.getElementById('detail-source').textContent = data.source || '—';
           document.getElementById('detail-body').textContent = data.content || '';
           const link = document.getElementById('detail-link');
