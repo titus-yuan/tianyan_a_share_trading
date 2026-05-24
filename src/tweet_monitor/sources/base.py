@@ -14,6 +14,7 @@ class Tweet:
     posted_at: datetime
     raw_url: str = ""
     source: str = "unknown"
+    display_name: str = ""
 
 
 @dataclass

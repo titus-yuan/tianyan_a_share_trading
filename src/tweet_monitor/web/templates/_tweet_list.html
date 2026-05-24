@@ -20,7 +20,7 @@
             {{ (tweet.content or '')[:120] }}{% if (tweet.content or '')|length > 120 %}&hellip;{% endif %}
           </p>
           <div class="flex items-center gap-2 mt-0.5">
-            <span class="text-accent text-[11px] font-medium">@{{ tweet.username }}</span>
+            <span class="text-accent text-[11px] font-medium">{{ tweet.display_name or '' }} @{{ tweet.username }}</span>
             <span class="text-text-muted text-[11px]">共 {{ tweet.content|length }} 字</span>
           </div>
         </div>

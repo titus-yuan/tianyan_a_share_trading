@@ -81,6 +81,7 @@ def _monitor_one(username: str, source) -> int:
             "posted_at": t.posted_at.isoformat() if t.posted_at else None,
             "source": t.source,
             "raw_url": t.raw_url,
+            "display_name": t.display_name,
         })
 
     new_count = 0

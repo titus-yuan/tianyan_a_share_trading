@@ -22,7 +22,7 @@ def bjt_filter(value):
             value = datetime.fromisoformat(value)
         except (ValueError, TypeError):
             return value[:16] if len(value) >= 16 else value
-    return value.strftime("%m-%d %H:%M")
+    return value.strftime("%Y-%m-%d %H:%M")
 
 
 def get_db():

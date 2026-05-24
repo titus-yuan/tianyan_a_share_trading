@@ -54,14 +54,15 @@ def insert_tweets(tweets: list[dict]) -> int:
     values = []
     for t in tweets:
         content_escaped = t["content"].replace("'", "''")
+        dn = t.get("display_name", "").replace("'", "''")
         values.append(
             f"({t['tweet_id']}, '{t['username']}', '{content_escaped}', "
             f"'{t['posted_at']}', '{t.get('source', 'nitter')}', "
-            f"'{t.get('raw_url', '')}', md5('{content_escaped}'))"
+            f"'{t.get('raw_url', '')}', md5('{content_escaped}'), '{dn}')"
         )
 
     sql = f"""
-    INSERT INTO tweets (tweet_id, username, content, posted_at, source, raw_url, content_hash)
+    INSERT INTO tweets (tweet_id, username, content, posted_at, source, raw_url, content_hash, display_name)
     VALUES {','.join(values)}
     ON CONFLICT (username, tweet_id) DO NOTHING;
     """

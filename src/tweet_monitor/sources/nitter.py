@@ -3,12 +3,14 @@
 import re
 import time
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 import httpx
 
 from ..config import NITTER_UA, NITTER_TIMEOUT
 from .base import BaseSource, Tweet, SourceHealth
+
+BJT = timezone(timedelta(hours=8))
 
 
 class NitterSource(BaseSource):
@@ -46,6 +48,12 @@ class NitterSource(BaseSource):
         except ET.ParseError:
             return []
 
+        # Extract display name from channel <title>: "STOCK调研公社 / @STOCK6688"
+        display_name = ""
+        channel_title = root.findtext("channel/title")
+        if channel_title and " / @" in channel_title:
+            display_name = channel_title.split(" / @")[0].strip()
+
         tweets = []
         for item in root.findall(".//item"):
             link_el = item.find("link")
@@ -65,15 +73,21 @@ class NitterSource(BaseSource):
             if since_id and tweet_id <= since_id:
                 continue
 
-            # Parse date
+            # Parse date — Nitter pubDate is GMT, convert to Beijing time
             posted_at = None
             if pubdate_el is not None and pubdate_el.text:
                 try:
-                    posted_at = datetime.strptime(
-                        pubdate_el.text, "%a, %d %b %Y %H:%M:%S %Z"
-                    )
+                    # "Sun, 24 May 2026 12:10:00 GMT"
+                    # Strip timezone suffix, parse as UTC, convert to BJT
+                    date_str = pubdate_el.text.strip()
+                    for tz_suffix in (" GMT", " UTC", " +0000", " -0000"):
+                        date_str = date_str.replace(tz_suffix, "")
+                    posted_at_utc = datetime.strptime(
+                        date_str, "%a, %d %b %Y %H:%M:%S"
+                    ).replace(tzinfo=timezone.utc)
+                    posted_at = posted_at_utc.astimezone(BJT)
                 except ValueError:
-                    posted_at = datetime.utcnow()
+                    posted_at = datetime.now(BJT)
 
             # Content from title (RSS title = tweet text)
             content = title_el.text if title_el is not None and title_el.text else ""
@@ -86,9 +100,10 @@ class NitterSource(BaseSource):
                     tweet_id=tweet_id,
                     username=username,
                     content=content.strip(),
-                    posted_at=posted_at or datetime.utcnow(),
+                    posted_at=posted_at or datetime.now(BJT),
                     raw_url=link_el.text,
                     source="nitter",
+                    display_name=display_name,
                 )
             )
 
