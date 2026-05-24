@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>@STOCK6688 推文监控</title>
+<!-- HTMX -->
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          telegram: { bg: '#1a1a2e', card: '#16213e', accent: '#0f3460', link: '#0088cc' }
+        }
+      }
+    }
+  }
+</script>
+<style>
+  /* Telegram-style dark theme */
+  body { background: #0f0f1a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+  .card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; }
+  .stat-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+  .tweet-card { transition: all 0.2s; }
+  .tweet-card:hover { border-color: #3a3a6a; transform: translateX(2px); }
+  .btn { background: #0088cc; color: white; padding: 8px 18px; border-radius: 8px; font-size: 14px; border: none; cursor: pointer; transition: all 0.2s; }
+  .btn:hover { background: #0099dd; }
+  .btn:disabled { background: #333; cursor: not-allowed; }
+  .btn-outline { background: transparent; border: 1px solid #0088cc; color: #0088cc; }
+  .btn-outline:hover { background: rgba(0,136,204,0.1); }
+  .search-input { background: #12121e; border: 1px solid #2a2a4a; color: #e0e0e0; padding: 10px 16px; border-radius: 10px; width: 100%; font-size: 15px; outline: none; transition: border-color 0.2s; }
+  .search-input:focus { border-color: #0088cc; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .badge-green { background: rgba(0,200,83,0.15); color: #00c853; }
+  .badge-red { background: rgba(255,82,82,0.15); color: #ff5252; }
+  .badge-blue { background: rgba(0,136,204,0.15); color: #0088cc; }
+  .timestamp { color: #666; font-size: 13px; }
+  .tweet-content { font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+  .tweet-content a { color: #0088cc; }
+  .pagination a { display: inline-block; padding: 6px 14px; border-radius: 6px; color: #999; text-decoration: none; transition: all 0.2s; }
+  .pagination a:hover { background: #222; color: #fff; }
+  .pagination a.active { background: #0088cc; color: #fff; }
+  .pagination a.disabled { color: #444; pointer-events: none; }
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(0,136,204,0.3); border-top-color: #0088cc; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; top: 20px; right: 20px; padding: 12px 24px; border-radius: 10px; font-size: 14px; z-index: 100; animation: fadeIn 0.3s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Header -->
+<header class="border-b border-gray-800/50 py-4 px-6">
+  <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold">@STOCK6688 <span class="text-gray-500 font-normal text-base">推文监控</span></h1>
+      <p class="text-gray-500 text-sm mt-1">STOCK调研公社 · 实时推文追踪</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button class="btn-outline btn text-sm"
+              hx-post="/api/refresh"
+              hx-target="#toast-area"
+              hx-swap="innerHTML"
+              onclick="this.disabled=true;this.innerHTML='⏳ 同步中...';setTimeout(()=>{this.disabled=false;this.innerHTML='🔄 同步缓存'},5000)">
+        🔄 同步缓存
+      </button>
+      <span class="text-gray-500 text-sm" id="last-sync">
+        {% if stats.last_sync != '—' %}
+        上次同步 {{ stats.last_sync[:19] }}
+        {% endif %}
+      </span>
+    </div>
+  </div>
+</header>
+
+<!-- Stats Bar -->
+<div class="max-w-6xl mx-auto px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+  <div class="stat-card rounded-xl p-4">
+    <div class="text-gray-400 text-xs uppercase tracking-wide">总推文</div>
+    <div class="text-2xl font-bold mt-1">{{ stats.total }}</div>
+  </div>
+  <div class="stat-card rounded-xl p-4">
+    <div class="text-gray-400 text-xs uppercase tracking-wide">今日新增</div>
+    <div class="text-2xl font-bold mt-1">{{ stats.today }}</div>
+  </div>
+  <div class="stat-card rounded-xl p-4">
+    <div class="text-gray-400 text-xs uppercase tracking-wide">最新推文</div>
+    <div class="text-base font-medium mt-1 truncate" title="{{ stats.latest }}">{{ stats.latest[:16] if stats.latest != '—' else '—' }}</div>
+  </div>
+  <div class="stat-card rounded-xl p-4">
+    <div class="text-gray-400 text-xs uppercase tracking-wide">监控状态</div>
+    <div class="text-base font-medium mt-1">
+      {% if last_log and last_log.status == 'ok' %}
+      <span class="badge badge-green">✅ 正常</span>
+      {% elif last_log and last_log.status == 'partial' %}
+      <span class="badge badge-blue">⚠️ 部分</span>
+      {% else %}
+      <span class="badge badge-red">❌ 异常</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Last fetch info -->
+{% if last_log %}
+<div class="max-w-6xl mx-auto px-6 mb-2">
+  <p class="text-gray-600 text-xs">
+    最近采集: {{ last_log.started_at[:19] }} · 
+    {{ last_log.source_type }} · 
+    新增 {{ last_log.tweets_new }}/{{ last_log.tweets_total }} · 
+    {{ last_log.instance_url }}
+  </p>
+</div>
+{% endif %}
+
+<!-- Search -->
+<div class="max-w-6xl mx-auto px-6 py-2">
+  <input type="text" class="search-input" placeholder="🔍 搜索推文内容..." name="q"
+         hx-get="/search" hx-trigger="keyup changed delay:400ms"
+         hx-target="#tweet-list" hx-indicator="#spinner"
+         hx-include="[name='q']"
+         value="{{ search_query or '' }}">
+  <div id="spinner" class="htmx-indicator mt-2">
+    <span class="spinner"></span> <span class="text-gray-500 text-sm">搜索中...</span>
+  </div>
+</div>
+
+<!-- Tweet List -->
+<div id="tweet-list" class="max-w-6xl mx-auto px-6 py-4 space-y-3">
+  {% include "_tweet_list.html" %}
+</div>
+
+<!-- Toast area -->
+<div id="toast-area"></div>
+
+<!-- Footer -->
+<footer class="border-t border-gray-800/50 mt-8 py-4 text-center text-gray-600 text-xs">
+  Tweet Monitor · 数据源: nitter.net · Bot PC PostgreSQL → 本地 SQLite 缓存
+</footer>
+
+</body>
+</html>

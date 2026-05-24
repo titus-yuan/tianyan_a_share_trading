@@ -1,0 +1,18 @@
+[project]
+name = "tweet-monitor"
+version = "0.1.0"
+description = "Twitter/X account monitoring pipeline for media_x_monitor"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.1.3",
+    "httpx>=0.28",
+    "psycopg2-binary>=2.9",
+    "sshtunnel>=0.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tweet_monitor"]

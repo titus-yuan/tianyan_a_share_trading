@@ -1,0 +1,86 @@
+{# HTMX partial — tweet list with pagination #}
+
+{% if tweets %}
+  {% for t in tweets %}
+  <div class="card tweet-card p-5">
+    <div class="flex items-start justify-between mb-2">
+      <div class="flex items-center gap-2">
+        <span class="badge badge-blue">@{{ t.username }}</span>
+        <span class="timestamp">{{ t.posted_at[:19] if t.posted_at else '—' }}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        {% if t.source %}
+        <span class="text-gray-600 text-xs">{{ t.source }}</span>
+        {% endif %}
+        {% if t.raw_url %}
+        <a href="{{ t.raw_url }}" target="_blank" class="text-gray-500 hover:text-blue-400 text-xs" title="原文链接">🔗</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="tweet-content">{{ t.content }}</div>
+    <div class="mt-2 text-gray-600 text-xs">
+      ID: {{ t.tweet_id }} · 抓取: {{ t.fetched_at[:19] if t.fetched_at else '—' }}
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Pagination -->
+  {% if total_pages > 1 %}
+  <div class="pagination flex justify-center items-center gap-2 py-4">
+    {% if page > 1 %}
+    <a href="#" hx-get="/tweets?page=1{% if search_query %}&q={{ search_query }}{% endif %}"
+       hx-target="#tweet-list">««</a>
+    <a href="#" hx-get="/tweets?page={{ page - 1 }}{% if search_query %}&q={{ search_query }}{% endif %}"
+       hx-target="#tweet-list">«</a>
+    {% else %}
+    <a class="disabled">««</a>
+    <a class="disabled">«</a>
+    {% endif %}
+
+    {% set start = [page - 2, 1] | max %}
+    {% set end = [page + 2, total_pages] | min %}
+
+    {% if start > 1 %}
+    <a href="#" hx-get="/tweets?page=1{% if search_query %}&q={{ search_query }}{% endif %}"
+       hx-target="#tweet-list">1</a>
+    {% if start > 2 %}<span class="text-gray-600 px-1">…</span>{% endif %}
+    {% endif %}
+
+    {% for p in range(start, end + 1) %}
+    <a href="#" hx-get="/tweets?page={{ p }}{% if search_query %}&q={{ search_query }}{% endif %}"
+       hx-target="#tweet-list"
+       class="{% if p == page %}active{% endif %}">{{ p }}</a>
+    {% endfor %}
+
+    {% if end < total_pages %}
+    {% if end < total_pages - 1 %}<span class="text-gray-600 px-1">…</span>{% endif %}
+    <a href="#" hx-get="/tweets?page={{ total_pages }}{% if search_query %}&q={{ search_query }}{% endif %}"
+       hx-target="#tweet-list">{{ total_pages }}</a>
+    {% endif %}
+
+    {% if page < total_pages %}
+    <a href="#" hx-get="/tweets?page={{ page + 1 }}{% if search_query %}&q={{ search_query }}{% endif %}"
+       hx-target="#tweet-list">»</a>
+    <a href="#" hx-get="/tweets?page={{ total_pages }}{% if search_query %}&q={{ search_query }}{% endif %}"
+       hx-target="#tweet-list">»»</a>
+    {% else %}
+    <a class="disabled">»</a>
+    <a class="disabled">»»</a>
+    {% endif %}
+
+    <span class="text-gray-600 text-sm ml-3">{{ total_pages }} 页 / {{ tweets | length * total_pages }} 条</span>
+  </div>
+  {% endif %}
+
+{% else %}
+  <div class="card p-10 text-center text-gray-500">
+    <p class="text-lg mb-2">📭 暂无推文</p>
+    <p class="text-sm">
+      {% if search_query %}
+      没有找到包含 "<strong>{{ search_query }}</strong>" 的推文
+      {% else %}
+      等待首次数据采集...
+      {% endif %}
+    </p>
+  </div>
+{% endif %}
