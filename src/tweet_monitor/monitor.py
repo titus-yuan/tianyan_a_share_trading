@@ -142,13 +142,6 @@ def main():
         total = sum(max(0, v) for v in results.values())
         logger.info("Total: %d new tweets across %d accounts", total, len(results))
 
-    # Sync local SQLite cache for web UI
-    try:
-        from .sync_cache import main as sync_main
-        sync_main()
-    except Exception as e:
-        logger.warning("Cache sync failed: %s", e)
-
 
 if __name__ == "__main__":
     main()
