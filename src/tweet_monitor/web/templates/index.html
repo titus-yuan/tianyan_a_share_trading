@@ -95,17 +95,6 @@
       </button>
 
       <div class="flex-1"></div>
-
-      <!-- Refresh -->
-      <button onclick="refreshCache()"
-              class="sidebar-item w-full flex flex-col items-center gap-1 py-3 px-2 rounded-2xl text-text-muted hover:text-white text-[10px] mt-auto"
-              title="同步缓存">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-        </svg>
-        <span>同步</span>
-      </button>
     </nav>
   </aside>
 
@@ -113,28 +102,45 @@
   <main class="flex-1 flex flex-col px-8 py-6 overflow-hidden">
 
     <!-- ── Top Panel ── -->
-    <div class="flex items-center gap-4 mb-5 flex-shrink-0">
-      <!-- Stats cards -->
-      <div class="stat-card card bg-white px-6 py-4 flex flex-col">
-        <span class="text-text-secondary text-xs">总推文</span>
-        <span class="text-text-primary text-2xl font-bold mt-0.5">{{ stats.total }}</span>
-      </div>
-      <div class="stat-card card bg-white px-6 py-4 flex flex-col">
-        <span class="text-text-secondary text-xs">今日新增</span>
-        <span class="text-accent-green text-2xl font-bold mt-0.5">+{{ stats.today }}</span>
-      </div>
-      <div class="stat-card card bg-white px-6 py-4 flex flex-col">
-        <span class="text-text-secondary text-xs">最新推文</span>
-        <span class="text-text-primary text-sm font-semibold mt-0.5 truncate max-w-[200px]">{{ stats.latest }}</span>
+    <div class="flex flex-col gap-3 mb-5 flex-shrink-0">
+      <!-- Row 1: Stats + sync -->
+      <div class="flex items-center gap-4">
+        <!-- Stats cards -->
+        <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+          <span class="text-text-secondary text-xs">总推文</span>
+          <span class="text-text-primary text-2xl font-bold mt-0.5">{{ stats.total }}</span>
+        </div>
+        <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+          <span class="text-text-secondary text-xs">今日新增</span>
+          <span class="text-accent-green text-2xl font-bold mt-0.5">+{{ stats.today }}</span>
+        </div>
+        <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+          <span class="text-text-secondary text-xs">最新推文</span>
+          <span class="text-text-primary text-sm font-semibold mt-0.5 truncate max-w-[200px]">{{ stats.latest }}</span>
+        </div>
+
+        <!-- Spacer -->
+        <div class="flex-1"></div>
+
+        <!-- Sync button -->
+        <button onclick="refreshCache()"
+                class="pill flex items-center gap-1.5 px-4 py-2 text-text-secondary text-xs bg-[#F0F0F0] hover:bg-[#E8E5DD] transition-colors"
+                title="同步缓存">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span>同步</span>
+        </button>
+
+        <!-- Sync timestamp -->
+        <span class="text-text-muted text-xs whitespace-nowrap">{{ stats.last_sync }}</span>
       </div>
 
-      <!-- Spacer -->
-      <div class="flex-1"></div>
-
-      <!-- Search -->
+      <!-- Row 2: Search -->
       <div class="relative">
         <input type="text" id="search-input" placeholder="搜索推文..."
-               class="pill bg-[#F0F0F0] text-text-primary text-sm pl-10 pr-5 py-2.5 w-56 outline-none border-none
+               class="pill bg-[#F0F0F0] text-text-primary text-sm pl-10 pr-5 py-2.5 w-full max-w-[480px] outline-none border-none
                       placeholder:text-text-muted focus:ring-2 focus:ring-black/5 transition-all"
                hx-get="/search"
                hx-trigger="keyup changed delay:300ms"
@@ -152,9 +158,6 @@
           </svg>
         </span>
       </div>
-
-      <!-- Sync timestamp -->
-      <span class="text-text-muted text-xs whitespace-nowrap">同步: {{ stats.last_sync }}</span>
     </div>
 
     <!-- ── Tweet List ── -->
