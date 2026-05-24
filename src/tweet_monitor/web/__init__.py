@@ -1,13 +1,13 @@
-"""Flask web app for viewing monitored tweets."""
+"""天演 Tianyan — Flask web app (warm beige theme, 3-column layout)."""
 
 import sqlite3
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from flask import Flask, g, render_template, request, jsonify
 
 CACHE_DB = Path(__file__).parent.parent.parent.parent / "cache" / "tweets.db"
-PER_PAGE = 30
+PER_PAGE = 20
 
 app = Flask(__name__)
 
@@ -27,19 +27,17 @@ def close_db(exception):
         db.close()
 
 
-# ── Routes ────────────────────────────────────────────────
+# ── Routes ─────────────────────────────────────────────────
 
 
 @app.route("/")
 def index():
-    """Main page — tweet timeline."""
+    """Main page — 3-column layout with sidebar / list / detail."""
     db = get_db()
 
     # Summary stats
     stats = {}
-    row = db.execute(
-        "SELECT COUNT(*) as total FROM tweets"
-    ).fetchone()
+    row = db.execute("SELECT COUNT(*) as total FROM tweets").fetchone()
     stats["total"] = row["total"]
 
     row = db.execute(
@@ -47,21 +45,13 @@ def index():
     ).fetchone()
     stats["today"] = row["cnt"]
 
+    row = db.execute("SELECT MAX(posted_at) as latest FROM tweets").fetchone()
+    stats["latest"] = row["latest"] if row and row["latest"] else "—"
+
     row = db.execute(
         "SELECT value FROM sync_meta WHERE key='last_sync'"
     ).fetchone()
     stats["last_sync"] = row["value"] if row else "—"
-
-    row = db.execute(
-        "SELECT MAX(posted_at) as latest FROM tweets"
-    ).fetchone()
-    stats["latest"] = row["latest"] if row else "—"
-
-    # Last fetch log status
-    row = db.execute(
-        "SELECT * FROM fetch_log ORDER BY started_at DESC LIMIT 1"
-    ).fetchone()
-    last_log = dict(row) if row else None
 
     # Tweets — page 1
     page = request.args.get("page", 1, type=int)
@@ -78,7 +68,6 @@ def index():
     return render_template(
         "index.html",
         stats=stats,
-        last_log=last_log,
         tweets=tweets,
         page=page,
         total_pages=total_pages,
@@ -88,9 +77,8 @@ def index():
 
 @app.route("/tweets")
 def tweets_page():
-    """HTMX partial — load a page of tweets."""
+    """HTMX partial — tweet list page."""
     db = get_db()
-
     page = request.args.get("page", 1, type=int)
     offset = (page - 1) * PER_PAGE
 
@@ -113,20 +101,18 @@ def tweets_page():
 
 @app.route("/search")
 def search():
-    """Search tweets by keyword."""
+    """HTMX partial — search results."""
     db = get_db()
     q = request.args.get("q", "").strip()
-
     if not q:
         return tweets_page()
 
     page = request.args.get("page", 1, type=int)
     offset = (page - 1) * PER_PAGE
-
     like = f"%{q}%"
+
     count = db.execute(
-        "SELECT COUNT(*) as cnt FROM tweets WHERE content LIKE ?",
-        (like,),
+        "SELECT COUNT(*) as cnt FROM tweets WHERE content LIKE ?", (like,)
     ).fetchone()["cnt"]
 
     tweets = db.execute(
@@ -146,9 +132,30 @@ def search():
     )
 
 
+@app.route("/api/tweet/<int:tweet_id>")
+def tweet_detail(tweet_id):
+    """JSON API — return full tweet for detail panel."""
+    db = get_db()
+    row = db.execute(
+        "SELECT * FROM tweets WHERE id = ?", (tweet_id,)
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "not found"}), 404
+
+    return jsonify({
+        "id": row["id"],
+        "tweet_id": row["tweet_id"],
+        "username": row["username"],
+        "content": row["content"],
+        "posted_at": row["posted_at"],
+        "source": row["source"],
+        "raw_url": row["raw_url"],
+    })
+
+
 @app.route("/api/refresh")
 def api_refresh():
-    """Trigger cache sync and return JSON status."""
+    """Trigger cache sync."""
     import subprocess
     import sys
 
@@ -166,10 +173,10 @@ def api_refresh():
         return jsonify({"ok": False, "error": str(e)})
 
 
-# ── Main ──────────────────────────────────────────────────
+# ── Main ───────────────────────────────────────────────────
 
 
 def launch(host="0.0.0.0", port=5500):
     """Launch the web server."""
-    print(f"📊 Tweet Monitor → http://{host}:{port}")
+    print(f"📊 天演 Tianyan → http://{host}:{port}")
     app.run(host=host, port=port, debug=False)

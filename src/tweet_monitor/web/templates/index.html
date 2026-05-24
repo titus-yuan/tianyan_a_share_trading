@@ -1,146 +1,296 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>@STOCK6688 推文监控</title>
-<!-- HTMX -->
-<script src="https://unpkg.com/htmx.org@1.9.12"></script>
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    darkMode: 'class',
-    theme: {
-      extend: {
-        colors: {
-          telegram: { bg: '#1a1a2e', card: '#16213e', accent: '#0f3460', link: '#0088cc' }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>天演 Tianyan — @STOCK6688</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            warm:  { bg: '#F2EFE8', card: '#FFFFFF', hover: '#FAF8F3' },
+            dark:  { sidebar: '#1C1C1C', panel: '#252423', input: '#333230' },
+            text:  { primary: '#1A1A1A', secondary: '#8E8E8E', muted: '#B0B0B0' },
+            line:  { light: '#EBEBEB', dark: '#3D3C3A' },
+            menu:  { active: '#2B2B2B' },
+            accent:{ green: '#3A8E39', red: '#D32F2F' }
+          },
+          fontFamily: {
+            sans: ['"PingFang SC"', '"Microsoft YaHei"', 'Inter', 'system-ui', 'sans-serif'],
+            mono: ['"SF Mono"', 'Menlo', 'monospace']
+          }
         }
       }
     }
-  }
-</script>
-<style>
-  /* Telegram-style dark theme */
-  body { background: #0f0f1a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
-  .card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; }
-  .stat-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
-  .tweet-card { transition: all 0.2s; }
-  .tweet-card:hover { border-color: #3a3a6a; transform: translateX(2px); }
-  .btn { background: #0088cc; color: white; padding: 8px 18px; border-radius: 8px; font-size: 14px; border: none; cursor: pointer; transition: all 0.2s; }
-  .btn:hover { background: #0099dd; }
-  .btn:disabled { background: #333; cursor: not-allowed; }
-  .btn-outline { background: transparent; border: 1px solid #0088cc; color: #0088cc; }
-  .btn-outline:hover { background: rgba(0,136,204,0.1); }
-  .search-input { background: #12121e; border: 1px solid #2a2a4a; color: #e0e0e0; padding: 10px 16px; border-radius: 10px; width: 100%; font-size: 15px; outline: none; transition: border-color 0.2s; }
-  .search-input:focus { border-color: #0088cc; }
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
-  .badge-green { background: rgba(0,200,83,0.15); color: #00c853; }
-  .badge-red { background: rgba(255,82,82,0.15); color: #ff5252; }
-  .badge-blue { background: rgba(0,136,204,0.15); color: #0088cc; }
-  .timestamp { color: #666; font-size: 13px; }
-  .tweet-content { font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
-  .tweet-content a { color: #0088cc; }
-  .pagination a { display: inline-block; padding: 6px 14px; border-radius: 6px; color: #999; text-decoration: none; transition: all 0.2s; }
-  .pagination a:hover { background: #222; color: #fff; }
-  .pagination a.active { background: #0088cc; color: #fff; }
-  .pagination a.disabled { color: #444; pointer-events: none; }
-  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(0,136,204,0.3); border-top-color: #0088cc; border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .toast { position: fixed; top: 20px; right: 20px; padding: 12px 24px; border-radius: 10px; font-size: 14px; z-index: 100; animation: fadeIn 0.3s; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-</style>
+  </script>
+  <style>
+    body { background: #F2EFE8; }
+    .card { border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .sidebar-item { transition: background 0.15s; }
+    .sidebar-item.active, .sidebar-item.sub-active { background: #2B2B2B; }
+    .tweet-row { transition: background 0.12s; cursor: pointer; }
+    .tweet-row:hover { background: #FAF8F3; }
+    .tweet-row.selected { background: #F0EDE4; border-left: 3px solid #1A1A1A; }
+    .pill { border-radius: 9999px; }
+    .submenu { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .submenu.open { max-height: 200px; }
+    .detail-panel { min-height: 300px; }
+    .stat-card { min-width: 140px; }
+    #tweet-list { scroll-behavior: smooth; }
+    .fade-in { animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D0CCC3; border-radius: 10px; }
+  </style>
 </head>
-<body class="min-h-screen">
+<body class="font-sans h-screen flex overflow-hidden">
 
-<!-- Header -->
-<header class="border-b border-gray-800/50 py-4 px-6">
-  <div class="max-w-6xl mx-auto flex items-center justify-between">
-    <div>
-      <h1 class="text-xl font-bold">@STOCK6688 <span class="text-gray-500 font-normal text-base">推文监控</span></h1>
-      <p class="text-gray-500 text-sm mt-1">STOCK调研公社 · 实时推文追踪</p>
+  <!-- ═══════════ Left Sidebar ═══════════ -->
+  <aside class="w-[90px] flex-shrink-0 bg-dark-sidebar flex flex-col items-center py-6 rounded-r-3xl">
+    <!-- Logo -->
+    <div class="text-white font-bold text-sm tracking-wider mb-10">
+      天演
     </div>
-    <div class="flex items-center gap-3">
-      <button class="btn-outline btn text-sm"
-              hx-post="/api/refresh"
-              hx-target="#toast-area"
-              hx-swap="innerHTML"
-              onclick="this.disabled=true;this.innerHTML='⏳ 同步中...';setTimeout(()=>{this.disabled=false;this.innerHTML='🔄 同步缓存'},5000)">
-        🔄 同步缓存
+
+    <!-- Menu -->
+    <nav class="w-full px-3 flex flex-col gap-1" id="sidebar-nav">
+      <!-- 新闻 (expandable) -->
+      <div class="mb-1">
+        <button onclick="toggleMenu(this)"
+                class="sidebar-item w-full flex flex-col items-center gap-1 py-3 px-2 rounded-2xl text-text-muted hover:text-white text-[11px]"
+                data-menu="news">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+          </svg>
+          <span>新闻</span>
+        </button>
+        <!-- Sub-menu: X推文 -->
+        <div class="submenu" id="sub-news">
+          <button onclick="selectSub(this, 'tweets')"
+                  class="sidebar-item sub-active w-full flex flex-col items-center gap-1 py-2.5 px-2 rounded-2xl text-white text-[10px] mt-0.5"
+                  data-view="tweets">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            <span>X推文</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Future: 行情 (placeholder) -->
+      <button class="sidebar-item w-full flex flex-col items-center gap-1 py-3 px-2 rounded-2xl text-text-muted hover:text-white text-[11px] opacity-40 cursor-not-allowed"
+              title="即将推出">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+        </svg>
+        <span>行情</span>
       </button>
-      <span class="text-gray-500 text-sm" id="last-sync">
-        {% if stats.last_sync != '—' %}
-        上次同步 {{ stats.last_sync[:19] }}
-        {% endif %}
-      </span>
+
+      <div class="flex-1"></div>
+
+      <!-- Refresh -->
+      <button onclick="refreshCache()"
+              class="sidebar-item w-full flex flex-col items-center gap-1 py-3 px-2 rounded-2xl text-text-muted hover:text-white text-[10px] mt-auto"
+              title="同步缓存">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span>同步</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ═══════════ Main Content ═══════════ -->
+  <main class="flex-1 flex flex-col px-8 py-6 overflow-hidden">
+
+    <!-- ── Top Panel ── -->
+    <div class="flex items-center gap-4 mb-5 flex-shrink-0">
+      <!-- Stats cards -->
+      <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+        <span class="text-text-secondary text-xs">总推文</span>
+        <span class="text-text-primary text-2xl font-bold mt-0.5">{{ stats.total }}</span>
+      </div>
+      <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+        <span class="text-text-secondary text-xs">今日新增</span>
+        <span class="text-accent-green text-2xl font-bold mt-0.5">+{{ stats.today }}</span>
+      </div>
+      <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+        <span class="text-text-secondary text-xs">最新推文</span>
+        <span class="text-text-primary text-sm font-semibold mt-0.5 truncate max-w-[200px]">{{ stats.latest }}</span>
+      </div>
+
+      <!-- Spacer -->
+      <div class="flex-1"></div>
+
+      <!-- Search -->
+      <div class="relative">
+        <input type="text" id="search-input" placeholder="搜索推文..."
+               class="pill bg-[#F0F0F0] text-text-primary text-sm pl-10 pr-5 py-2.5 w-56 outline-none border-none
+                      placeholder:text-text-muted focus:ring-2 focus:ring-black/5 transition-all"
+               hx-get="/search"
+               hx-trigger="keyup changed delay:300ms"
+               hx-target="#tweet-list"
+               hx-indicator="#search-spinner"
+               name="q">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <span id="search-spinner" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2">
+          <svg class="animate-spin w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+        </span>
+      </div>
+
+      <!-- Sync timestamp -->
+      <span class="text-text-muted text-xs whitespace-nowrap">同步: {{ stats.last_sync }}</span>
     </div>
-  </div>
-</header>
 
-<!-- Stats Bar -->
-<div class="max-w-6xl mx-auto px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-  <div class="stat-card rounded-xl p-4">
-    <div class="text-gray-400 text-xs uppercase tracking-wide">总推文</div>
-    <div class="text-2xl font-bold mt-1">{{ stats.total }}</div>
-  </div>
-  <div class="stat-card rounded-xl p-4">
-    <div class="text-gray-400 text-xs uppercase tracking-wide">今日新增</div>
-    <div class="text-2xl font-bold mt-1">{{ stats.today }}</div>
-  </div>
-  <div class="stat-card rounded-xl p-4">
-    <div class="text-gray-400 text-xs uppercase tracking-wide">最新推文</div>
-    <div class="text-base font-medium mt-1 truncate" title="{{ stats.latest }}">{{ stats.latest[:16] if stats.latest != '—' else '—' }}</div>
-  </div>
-  <div class="stat-card rounded-xl p-4">
-    <div class="text-gray-400 text-xs uppercase tracking-wide">监控状态</div>
-    <div class="text-base font-medium mt-1">
-      {% if last_log and last_log.status == 'ok' %}
-      <span class="badge badge-green">✅ 正常</span>
-      {% elif last_log and last_log.status == 'partial' %}
-      <span class="badge badge-blue">⚠️ 部分</span>
-      {% else %}
-      <span class="badge badge-red">❌ 异常</span>
-      {% endif %}
+    <!-- ── Tweet List ── -->
+    <div id="tweet-list" class="card bg-white flex-1 overflow-hidden flex flex-col">
+      {% include "_tweet_list.html" %}
     </div>
-  </div>
-</div>
 
-<!-- Last fetch info -->
-{% if last_log %}
-<div class="max-w-6xl mx-auto px-6 mb-2">
-  <p class="text-gray-600 text-xs">
-    最近采集: {{ last_log.started_at[:19] }} · 
-    {{ last_log.source_type }} · 
-    新增 {{ last_log.tweets_new }}/{{ last_log.tweets_total }} · 
-    {{ last_log.instance_url }}
-  </p>
-</div>
-{% endif %}
+  </main>
 
-<!-- Search -->
-<div class="max-w-6xl mx-auto px-6 py-2">
-  <input type="text" class="search-input" placeholder="🔍 搜索推文内容..." name="q"
-         hx-get="/search" hx-trigger="keyup changed delay:400ms"
-         hx-target="#tweet-list" hx-indicator="#spinner"
-         hx-include="[name='q']"
-         value="{{ search_query or '' }}">
-  <div id="spinner" class="htmx-indicator mt-2">
-    <span class="spinner"></span> <span class="text-gray-500 text-sm">搜索中...</span>
-  </div>
-</div>
+  <!-- ═══════════ Right Detail Panel ═══════════ -->
+  <aside class="w-[320px] flex-shrink-0 bg-dark-panel rounded-l-3xl p-6 flex flex-col"
+         id="detail-panel">
 
-<!-- Tweet List -->
-<div id="tweet-list" class="max-w-6xl mx-auto px-6 py-4 space-y-3">
-  {% include "_tweet_list.html" %}
-</div>
+    <!-- Placeholder -->
+    <div id="detail-placeholder" class="flex-1 flex flex-col items-center justify-center text-text-muted gap-3">
+      <svg class="w-10 h-10 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2"
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+      </svg>
+      <p class="text-sm">点击推文查看详情</p>
+    </div>
 
-<!-- Toast area -->
-<div id="toast-area"></div>
+    <!-- Detail content (hidden by default) -->
+    <div id="detail-content" class="hidden flex-1 flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between mb-4 flex-shrink-0">
+        <span class="text-white font-semibold text-sm">推文详情</span>
+        <button onclick="closeDetail()" class="text-text-muted hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
 
-<!-- Footer -->
-<footer class="border-t border-gray-800/50 mt-8 py-4 text-center text-gray-600 text-xs">
-  Tweet Monitor · 数据源: nitter.net · Bot PC PostgreSQL → 本地 SQLite 缓存
-</footer>
+      <div class="text-text-muted text-xs mb-1 flex-shrink-0">发布</div>
+      <div id="detail-time" class="text-white text-sm mb-4 flex-shrink-0"></div>
+
+      <div class="text-text-muted text-xs mb-1 flex-shrink-0">来源</div>
+      <div id="detail-source" class="text-white text-sm mb-4 flex-shrink-0"></div>
+
+      <div class="h-px bg-line-dark mb-4 flex-shrink-0"></div>
+
+      <div class="text-text-muted text-xs mb-2 flex-shrink-0">全文</div>
+      <div id="detail-body" class="text-white/85 text-sm leading-relaxed overflow-y-auto flex-1 whitespace-pre-wrap"></div>
+
+      <div class="mt-4 pt-3 border-t border-line-dark flex-shrink-0">
+        <a id="detail-link" href="#" target="_blank"
+           class="inline-flex items-center gap-1.5 text-text-muted hover:text-white text-xs transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+          在 Nitter 中打开
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════ Scripts ═══════════ -->
+  <script>
+    // ── Menu toggle ──
+    function toggleMenu(btn) {
+      const menuName = btn.dataset.menu;
+      const sub = document.getElementById('sub-' + menuName);
+      sub.classList.toggle('open');
+      btn.classList.toggle('active', sub.classList.contains('open'));
+    }
+
+    function selectSub(btn, view) {
+      // Remove active from all sub items
+      document.querySelectorAll('.sidebar-item.sub-active').forEach(el => {
+        el.classList.remove('sub-active');
+        el.classList.add('text-text-muted');
+      });
+      // Set active
+      btn.classList.add('sub-active', 'text-white');
+      btn.classList.remove('text-text-muted');
+    }
+
+    // ── Initial menu state ──
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelector('[data-menu="news"]').click();
+    });
+
+    // ── Tweet selection → detail panel ──
+    function selectTweet(el, tweetId) {
+      // Highlight
+      document.querySelectorAll('.tweet-row.selected').forEach(r => r.classList.remove('selected'));
+      el.classList.add('selected');
+
+      // Fetch detail
+      fetch('/api/tweet/' + tweetId)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('detail-placeholder').classList.add('hidden');
+          document.getElementById('detail-content').classList.remove('hidden');
+          document.getElementById('detail-time').textContent = data.posted_at || '—';
+          document.getElementById('detail-source').textContent = data.source || '—';
+          document.getElementById('detail-body').textContent = data.content || '';
+          const link = document.getElementById('detail-link');
+          if (data.raw_url) {
+            link.href = data.raw_url;
+            link.classList.remove('hidden');
+          } else {
+            link.classList.add('hidden');
+          }
+        })
+        .catch(err => {
+          console.error('Detail fetch failed:', err);
+        });
+    }
+
+    function closeDetail() {
+      document.getElementById('detail-placeholder').classList.remove('hidden');
+      document.getElementById('detail-content').classList.add('hidden');
+      document.querySelectorAll('.tweet-row.selected').forEach(r => r.classList.remove('selected'));
+    }
+
+    // ── Refresh cache ──
+    function refreshCache() {
+      const btn = event.target.closest('button');
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>';
+
+      fetch('/api/refresh')
+        .then(r => r.json())
+        .then(d => {
+          btn.innerHTML = d.ok ? '✅' : '❌';
+          setTimeout(() => { btn.innerHTML = orig; }, 1500);
+          if (d.ok) { htmx.ajax('GET', '/tweets', '#tweet-list'); }
+        })
+        .catch(() => {
+          btn.innerHTML = '❌';
+          setTimeout(() => { btn.innerHTML = orig; }, 1500);
+        });
+    }
+  </script>
 
 </body>
 </html>

@@ -1,86 +1,79 @@
-{# HTMX partial — tweet list with pagination #}
+<!-- Tweet list partial — HTMX target -->
+<div class="flex-1 flex flex-col overflow-hidden">
 
-{% if tweets %}
-  {% for t in tweets %}
-  <div class="card tweet-card p-5">
-    <div class="flex items-start justify-between mb-2">
-      <div class="flex items-center gap-2">
-        <span class="badge badge-blue">@{{ t.username }}</span>
-        <span class="timestamp">{{ t.posted_at[:19] if t.posted_at else '—' }}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        {% if t.source %}
-        <span class="text-gray-600 text-xs">{{ t.source }}</span>
-        {% endif %}
-        {% if t.raw_url %}
-        <a href="{{ t.raw_url }}" target="_blank" class="text-gray-500 hover:text-blue-400 text-xs" title="原文链接">🔗</a>
-        {% endif %}
-      </div>
-    </div>
-    <div class="tweet-content">{{ t.content }}</div>
-    <div class="mt-2 text-gray-600 text-xs">
-      ID: {{ t.tweet_id }} · 抓取: {{ t.fetched_at[:19] if t.fetched_at else '—' }}
-    </div>
-  </div>
-  {% endfor %}
-
-  <!-- Pagination -->
-  {% if total_pages > 1 %}
-  <div class="pagination flex justify-center items-center gap-2 py-4">
-    {% if page > 1 %}
-    <a href="#" hx-get="/tweets?page=1{% if search_query %}&q={{ search_query }}{% endif %}"
-       hx-target="#tweet-list">««</a>
-    <a href="#" hx-get="/tweets?page={{ page - 1 }}{% if search_query %}&q={{ search_query }}{% endif %}"
-       hx-target="#tweet-list">«</a>
-    {% else %}
-    <a class="disabled">««</a>
-    <a class="disabled">«</a>
-    {% endif %}
-
-    {% set start = [page - 2, 1] | max %}
-    {% set end = [page + 2, total_pages] | min %}
-
-    {% if start > 1 %}
-    <a href="#" hx-get="/tweets?page=1{% if search_query %}&q={{ search_query }}{% endif %}"
-       hx-target="#tweet-list">1</a>
-    {% if start > 2 %}<span class="text-gray-600 px-1">…</span>{% endif %}
-    {% endif %}
-
-    {% for p in range(start, end + 1) %}
-    <a href="#" hx-get="/tweets?page={{ p }}{% if search_query %}&q={{ search_query }}{% endif %}"
-       hx-target="#tweet-list"
-       class="{% if p == page %}active{% endif %}">{{ p }}</a>
-    {% endfor %}
-
-    {% if end < total_pages %}
-    {% if end < total_pages - 1 %}<span class="text-gray-600 px-1">…</span>{% endif %}
-    <a href="#" hx-get="/tweets?page={{ total_pages }}{% if search_query %}&q={{ search_query }}{% endif %}"
-       hx-target="#tweet-list">{{ total_pages }}</a>
-    {% endif %}
-
-    {% if page < total_pages %}
-    <a href="#" hx-get="/tweets?page={{ page + 1 }}{% if search_query %}&q={{ search_query }}{% endif %}"
-       hx-target="#tweet-list">»</a>
-    <a href="#" hx-get="/tweets?page={{ total_pages }}{% if search_query %}&q={{ search_query }}{% endif %}"
-       hx-target="#tweet-list">»»</a>
-    {% else %}
-    <a class="disabled">»</a>
-    <a class="disabled">»»</a>
-    {% endif %}
-
-    <span class="text-gray-600 text-sm ml-3">{{ total_pages }} 页 / {{ tweets | length * total_pages }} 条</span>
+  {% if search_query %}
+  <div class="px-6 py-3 text-text-secondary text-xs border-b border-line-light flex-shrink-0">
+    搜索 "<span class="text-text-primary font-medium">{{ search_query }}</span>" 共 {{ total_pages * per_page if total_pages > 1 else tweets|length }} 条结果
   </div>
   {% endif %}
 
-{% else %}
-  <div class="card p-10 text-center text-gray-500">
-    <p class="text-lg mb-2">📭 暂无推文</p>
-    <p class="text-sm">
-      {% if search_query %}
-      没有找到包含 "<strong>{{ search_query }}</strong>" 的推文
-      {% else %}
-      等待首次数据采集...
-      {% endif %}
-    </p>
+  <!-- List body — scrollable -->
+  <div class="flex-1 overflow-y-auto">
+    {% if tweets %}
+      {% for tweet in tweets %}
+      <div class="tweet-row px-6 py-4 border-b border-line-light flex items-start gap-4 fade-in"
+           onclick="selectTweet(this, {{ tweet.id }})"
+           data-tweet-id="{{ tweet.id }}">
+        <!-- Preview text -->
+        <div class="flex-1 min-w-0">
+          <p class="text-text-primary text-sm leading-relaxed line-clamp-2">
+            {{ (tweet.content or '')[:120] }}{% if (tweet.content or '')|length > 120 %}…{% endif %}
+          </p>
+          {% if (tweet.content or '')|length > 120 %}
+          <p class="text-text-muted text-[11px] mt-0.5">共 {{ tweet.content|length }} 字</p>
+          {% endif %}
+        </div>
+        <!-- Meta -->
+        <div class="flex-shrink-0 text-right">
+          <div class="text-text-secondary text-xs whitespace-nowrap">{{ tweet.posted_at or '—' }}</div>
+          <div class="text-text-muted text-[10px] mt-0.5 font-mono">#{{ tweet.tweet_id }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="flex-1 flex items-center justify-center text-text-muted text-sm py-20">
+        <div class="text-center">
+          <svg class="w-10 h-10 mx-auto mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2"
+                  d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          {% if search_query %}
+          没有找到匹配 "{{ search_query }}" 的推文
+          {% else %}
+          暂无推文数据
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
   </div>
-{% endif %}
+
+  <!-- Pagination -->
+  {% if total_pages > 1 %}
+  <div class="px-6 py-3 border-t border-line-light flex items-center justify-center gap-2 flex-shrink-0 bg-warm-hover/30">
+    {% if page > 1 %}
+    <button class="pill px-4 py-1.5 text-text-secondary text-xs hover:bg-[#E8E5DD] transition-colors"
+            hx-get="/tweets?page={{ page - 1 }}{% if search_query %}&q={{ search_query }}{% endif %}"
+            hx-target="#tweet-list">
+      ◀ 上一页
+    </button>
+    {% else %}
+    <span class="pill px-4 py-1.5 text-text-muted text-xs opacity-40">◀ 上一页</span>
+    {% endif %}
+
+    <span class="text-text-secondary text-xs px-3">
+      {{ page }} / {{ total_pages }}
+    </span>
+
+    {% if page < total_pages %}
+    <button class="pill px-4 py-1.5 text-text-secondary text-xs hover:bg-[#E8E5DD] transition-colors"
+            hx-get="/tweets?page={{ page + 1 }}{% if search_query %}&q={{ search_query }}{% endif %}"
+            hx-target="#tweet-list">
+      下一页 ▶
+    </button>
+    {% else %}
+    <span class="pill px-4 py-1.5 text-text-muted text-xs opacity-40">下一页 ▶</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
