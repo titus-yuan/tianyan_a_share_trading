@@ -17,15 +17,16 @@
         <!-- Preview text -->
         <div class="flex-1 min-w-0">
           <p class="text-text-primary text-sm leading-relaxed line-clamp-2">
-            {{ (tweet.content or '')[:120] }}{% if (tweet.content or '')|length > 120 %}…{% endif %}
+            {{ (tweet.content or '')[:120] }}{% if (tweet.content or '')|length > 120 %}&hellip;{% endif %}
           </p>
-          {% if (tweet.content or '')|length > 120 %}
-          <p class="text-text-muted text-[11px] mt-0.5">共 {{ tweet.content|length }} 字</p>
-          {% endif %}
+          <div class="flex items-center gap-2 mt-0.5">
+            <span class="text-accent text-[11px] font-medium">@{{ tweet.username }}</span>
+            <span class="text-text-muted text-[11px]">共 {{ tweet.content|length }} 字</span>
+          </div>
         </div>
         <!-- Meta -->
         <div class="flex-shrink-0 text-right">
-          <div class="text-text-secondary text-xs whitespace-nowrap">{{ tweet.posted_at or '—' }}</div>
+          <div class="text-text-secondary text-xs whitespace-nowrap">{{ tweet.posted_at | bjt }}</div>
           <div class="text-text-muted text-[10px] mt-0.5 font-mono">#{{ tweet.tweet_id }}</div>
         </div>
       </div>

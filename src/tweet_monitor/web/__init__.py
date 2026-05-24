@@ -12,6 +12,19 @@ PER_PAGE = 20
 app = Flask(__name__)
 
 
+@app.template_filter("bjt")
+def bjt_filter(value):
+    """Format a datetime/timestamp as Beijing time: MM-DD HH:MM"""
+    if not value:
+        return "—"
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except (ValueError, TypeError):
+            return value[:16] if len(value) >= 16 else value
+    return value.strftime("%m-%d %H:%M")
+
+
 def get_db():
     if "db" not in g:
         conn = get_pg_conn()
