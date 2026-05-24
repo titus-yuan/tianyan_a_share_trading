@@ -9,7 +9,9 @@ import io
 import sqlite3
 import subprocess
 import shlex
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+BJT = timezone(timedelta(hours=8))  # 北京时间 UTC+8
 from pathlib import Path
 
 from .config import BOT_PC_HOST, BOT_PC_USER, BOT_PC_DB, BOT_PC_DB_USER
@@ -91,37 +93,37 @@ def sync_tweets(conn: sqlite3.Connection) -> int:
     )
 
     raw = _ssh_copy(sql)
-    if not raw.strip():
-        return 0
-
-    reader = csv.reader(io.StringIO(raw))
     new_count = 0
     max_id = last_id
 
-    for row_parts in reader:
-        if len(row_parts) < 9:
-            continue
-        try:
-            cur = conn.execute(
-                """INSERT OR IGNORE INTO tweets
-                   (id, tweet_id, username, content, posted_at, fetched_at, source, raw_url, content_hash)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (int(row_parts[0]), int(row_parts[1]), row_parts[2], row_parts[3],
-                 row_parts[4], row_parts[5], row_parts[6], row_parts[7], row_parts[8]),
-            )
-            if cur.rowcount:
-                new_count += 1
-                max_id = max(max_id, int(row_parts[0]))
-        except (ValueError, sqlite3.IntegrityError):
-            continue
+    if raw.strip():
+        reader = csv.reader(io.StringIO(raw))
 
+        for row_parts in reader:
+            if len(row_parts) < 9:
+                continue
+            try:
+                cur = conn.execute(
+                    """INSERT OR IGNORE INTO tweets
+                       (id, tweet_id, username, content, posted_at, fetched_at, source, raw_url, content_hash)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (int(row_parts[0]), int(row_parts[1]), row_parts[2], row_parts[3],
+                     row_parts[4], row_parts[5], row_parts[6], row_parts[7], row_parts[8]),
+                )
+                if cur.rowcount:
+                    new_count += 1
+                    max_id = max(max_id, int(row_parts[0]))
+            except (ValueError, sqlite3.IntegrityError):
+                continue
+
+    # Always update sync meta — even when no new tweets
     conn.execute(
         "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('last_tweet_id', ?)",
         (str(max_id),),
     )
     conn.execute(
         "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('last_sync', ?)",
-        (datetime.now().isoformat(),),
+        (datetime.now(BJT).strftime("%Y-%m-%d %H:%M:%S"),),
     )
     conn.commit()
     return new_count
