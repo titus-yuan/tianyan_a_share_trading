@@ -14,11 +14,18 @@ if _ENV_PATH.exists():
                 if key not in os.environ:
                     os.environ[key] = val
 
-# Bot PC
+# Bot PC PostgreSQL (for monitor SSH access)
 BOT_PC_HOST = os.getenv("BOT_PC_HOST", "192.168.169.30")
 BOT_PC_USER = os.getenv("BOT_PC_USER", "titus")
 BOT_PC_DB = os.getenv("BOT_PC_DB", "media_x_monitor")
 BOT_PC_DB_USER = os.getenv("BOT_PC_DB_USER", "titus")
+
+# Local PostgreSQL (for web app on Bot PC)
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
+DB_NAME = os.getenv("DB_NAME", "media_x_monitor")
+DB_USER = os.getenv("DB_USER", "titus")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
 # SSH (use key-based auth — no password needed)
 SSH_KEY = os.path.expanduser("~/.ssh/id_rsa")

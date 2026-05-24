@@ -1,8 +1,26 @@
-"""Database operations via SSH tunnel to Bot PC PostgreSQL."""
+"""Database operations — direct PostgreSQL for web app, SSH for monitor."""
 
 import subprocess
 from datetime import datetime
-from .config import BOT_PC_HOST, BOT_PC_USER, BOT_PC_DB, BOT_PC_DB_USER
+
+import psycopg2
+import psycopg2.extras
+
+from .config import (
+    BOT_PC_HOST, BOT_PC_USER, BOT_PC_DB, BOT_PC_DB_USER,
+    DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD,
+)
+
+
+def get_pg_conn():
+    """Direct PostgreSQL connection for web app (runs on Bot PC localhost)."""
+    return psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+    )
 
 
 def _ssh_exec(sql: str) -> str:

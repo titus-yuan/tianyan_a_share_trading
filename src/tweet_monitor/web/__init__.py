@@ -1,22 +1,22 @@
-"""天演 Tianyan — Flask web app (warm beige theme, 3-column layout)."""
+"""天演 Tianyan — Flask web app, direct PostgreSQL (warm beige theme)."""
 
-import sqlite3
-from pathlib import Path
 from datetime import datetime
 
+import psycopg2
+import psycopg2.extras
 from flask import Flask, g, render_template, request, jsonify
 
-CACHE_DB = Path(__file__).parent.parent.parent.parent / "cache" / "tweets.db"
-PER_PAGE = 20
+from .db import get_pg_conn
 
+PER_PAGE = 20
 app = Flask(__name__)
 
 
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(str(CACHE_DB))
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA journal_mode=WAL")
+        conn = get_pg_conn()
+        conn.cursor_factory = psycopg2.extras.RealDictCursor
+        g.db = conn
     return g.db
 
 
@@ -32,38 +32,43 @@ def close_db(exception):
 
 @app.route("/")
 def index():
-    """Main page — 3-column layout with sidebar / list / detail."""
+    """Main page — 3-column layout."""
     db = get_db()
+    cur = db.cursor()
 
-    # Summary stats
-    stats = {}
-    row = db.execute("SELECT COUNT(*) as total FROM tweets").fetchone()
-    stats["total"] = row["total"]
+    # Stats
+    cur.execute("SELECT COUNT(*) as total FROM tweets")
+    stats = {"total": cur.fetchone()["total"]}
 
-    row = db.execute(
-        "SELECT COUNT(*) as cnt FROM tweets WHERE posted_at >= date('now')"
-    ).fetchone()
-    stats["today"] = row["cnt"]
+    cur.execute(
+        "SELECT COUNT(*) as cnt FROM tweets WHERE posted_at >= current_date"
+    )
+    stats["today"] = cur.fetchone()["cnt"]
 
-    row = db.execute("SELECT MAX(posted_at) as latest FROM tweets").fetchone()
-    stats["latest"] = row["latest"] if row and row["latest"] else "—"
+    cur.execute("SELECT MAX(posted_at) as latest FROM tweets")
+    row = cur.fetchone()
+    stats["latest"] = row["latest"].strftime("%Y-%m-%d %H:%M:%S") if row and row["latest"] else "—"
 
-    row = db.execute(
-        "SELECT value FROM sync_meta WHERE key='last_sync'"
-    ).fetchone()
-    stats["last_sync"] = row["value"] if row else "—"
+    cur.execute(
+        "SELECT MAX(started_at) as last_sync FROM fetch_log WHERE status='ok'"
+    )
+    row = cur.fetchone()
+    stats["last_sync"] = (
+        row["last_sync"].strftime("%Y-%m-%d %H:%M:%S")
+        if row and row["last_sync"] else "—"
+    )
 
     # Tweets — page 1
     page = request.args.get("page", 1, type=int)
     offset = (page - 1) * PER_PAGE
 
-    tweets = db.execute(
-        "SELECT * FROM tweets ORDER BY posted_at DESC LIMIT ? OFFSET ?",
+    cur.execute(
+        "SELECT * FROM tweets ORDER BY posted_at DESC LIMIT %s OFFSET %s",
         (PER_PAGE, offset),
-    ).fetchall()
+    )
+    tweets = cur.fetchall()
 
-    total = stats["total"]
-    total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+    total_pages = max(1, (stats["total"] + PER_PAGE - 1) // PER_PAGE)
 
     return render_template(
         "index.html",
@@ -79,15 +84,18 @@ def index():
 def tweets_page():
     """HTMX partial — tweet list page."""
     db = get_db()
+    cur = db.cursor()
     page = request.args.get("page", 1, type=int)
     offset = (page - 1) * PER_PAGE
 
-    tweets = db.execute(
-        "SELECT * FROM tweets ORDER BY posted_at DESC LIMIT ? OFFSET ?",
+    cur.execute(
+        "SELECT * FROM tweets ORDER BY posted_at DESC LIMIT %s OFFSET %s",
         (PER_PAGE, offset),
-    ).fetchall()
+    )
+    tweets = cur.fetchall()
 
-    total = db.execute("SELECT COUNT(*) as cnt FROM tweets").fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM tweets")
+    total = cur.fetchone()["cnt"]
     total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
 
     return render_template(
@@ -103,6 +111,7 @@ def tweets_page():
 def search():
     """HTMX partial — search results."""
     db = get_db()
+    cur = db.cursor()
     q = request.args.get("q", "").strip()
     if not q:
         return tweets_page()
@@ -111,14 +120,14 @@ def search():
     offset = (page - 1) * PER_PAGE
     like = f"%{q}%"
 
-    count = db.execute(
-        "SELECT COUNT(*) as cnt FROM tweets WHERE content LIKE ?", (like,)
-    ).fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM tweets WHERE content LIKE %s", (like,))
+    count = cur.fetchone()["cnt"]
 
-    tweets = db.execute(
-        "SELECT * FROM tweets WHERE content LIKE ? ORDER BY posted_at DESC LIMIT ? OFFSET ?",
+    cur.execute(
+        "SELECT * FROM tweets WHERE content LIKE %s ORDER BY posted_at DESC LIMIT %s OFFSET %s",
         (like, PER_PAGE, offset),
-    ).fetchall()
+    )
+    tweets = cur.fetchall()
 
     total_pages = max(1, (count + PER_PAGE - 1) // PER_PAGE)
 
@@ -136,9 +145,9 @@ def search():
 def tweet_detail(tweet_id):
     """JSON API — return full tweet for detail panel."""
     db = get_db()
-    row = db.execute(
-        "SELECT * FROM tweets WHERE id = ?", (tweet_id,)
-    ).fetchone()
+    cur = db.cursor()
+    cur.execute("SELECT * FROM tweets WHERE id = %s", (tweet_id,))
+    row = cur.fetchone()
     if not row:
         return jsonify({"error": "not found"}), 404
 
@@ -147,7 +156,7 @@ def tweet_detail(tweet_id):
         "tweet_id": row["tweet_id"],
         "username": row["username"],
         "content": row["content"],
-        "posted_at": row["posted_at"],
+        "posted_at": row["posted_at"].isoformat() if row["posted_at"] else None,
         "source": row["source"],
         "raw_url": row["raw_url"],
     })
@@ -155,13 +164,14 @@ def tweet_detail(tweet_id):
 
 @app.route("/api/refresh")
 def api_refresh():
-    """Trigger cache sync."""
+    """Trigger tweet fetch + return status."""
     import subprocess
     import sys
+    from pathlib import Path
 
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "tweet_monitor.sync_cache"],
+            [sys.executable, "-m", "tweet_monitor.monitor"],
             capture_output=True, text=True, timeout=60,
             cwd=str(Path(__file__).parent.parent.parent.parent),
         )
