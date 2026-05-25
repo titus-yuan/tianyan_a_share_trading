@@ -106,17 +106,21 @@
       <!-- Row 1: Stats + sync -->
       <div class="flex items-center gap-4">
         <!-- Stats cards -->
-        <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+        <div class="stat-card card bg-white px-6 py-4 flex flex-col justify-center" style="min-height:88px">
           <span class="text-text-secondary text-xs">总推文</span>
           <span class="text-text-primary text-2xl font-bold mt-0.5">{{ stats.total }}</span>
         </div>
-        <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+        <div class="stat-card card bg-white px-6 py-4 flex flex-col justify-center" style="min-height:88px">
+          <span class="text-text-secondary text-xs">总推主</span>
+          <span class="text-text-primary text-2xl font-bold mt-0.5">{{ stats.accounts }}</span>
+        </div>
+        <div class="stat-card card bg-white px-6 py-4 flex flex-col justify-center" style="min-height:88px">
           <span class="text-text-secondary text-xs">今日新增</span>
           <span class="text-accent-green text-2xl font-bold mt-0.5">+{{ stats.today }}</span>
         </div>
-        <div class="stat-card card bg-white px-6 py-4 flex flex-col">
+        <div class="stat-card card bg-white px-6 py-4 flex flex-col justify-center" style="min-height:88px">
           <span class="text-text-secondary text-xs">最新推文</span>
-          <span class="text-text-primary text-sm font-semibold mt-0.5 truncate max-w-[200px]">{{ stats.latest }}</span>
+          <span class="text-text-primary text-xs font-semibold mt-0.5 truncate max-w-[180px]">{{ stats.latest }}</span>
         </div>
 
         <!-- Spacer -->
@@ -133,8 +137,56 @@
           <span>同步</span>
         </button>
 
+        <!-- Manage button -->
+        <button onclick="toggleManage()"
+                class="pill flex items-center gap-1.5 px-4 py-2 text-text-secondary text-xs bg-[#F0F0F0] hover:bg-[#E8E5DD] transition-colors"
+                title="管理推主">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span>管理</span>
+        </button>
+
         <!-- Sync timestamp -->
         <span class="text-text-muted text-xs whitespace-nowrap">{{ stats.last_sync }}</span>
+      </div>
+
+      <!-- Manage panel (hidden by default) -->
+      <div id="manage-panel" class="card bg-white px-6 py-5 hidden">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-text-primary text-sm font-semibold">推主管理</span>
+          <button onclick="toggleManage()" class="text-text-muted hover:text-text-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Add form -->
+        <div class="flex items-end gap-3 mb-5">
+          <div>
+            <label class="text-text-secondary text-[11px] block mb-1">用户名 (Twitter handle)</label>
+            <input type="text" id="add-username" placeholder="STOCK6688"
+                   class="pill bg-[#F0F0F0] text-text-primary text-sm px-4 py-2 outline-none border-none focus:ring-2 focus:ring-black/5 w-[180px]">
+          </div>
+          <div>
+            <label class="text-text-secondary text-[11px] block mb-1">显示名</label>
+            <input type="text" id="add-display-name" placeholder="STOCK调研公社"
+                   class="pill bg-[#F0F0F0] text-text-primary text-sm px-4 py-2 outline-none border-none focus:ring-2 focus:ring-black/5 w-[200px]">
+          </div>
+          <button onclick="addAccount()"
+                  class="pill px-5 py-2 bg-dark-sidebar text-white text-xs hover:bg-menu-active transition-colors">
+            添加
+          </button>
+          <span id="add-status" class="text-xs ml-2"></span>
+        </div>
+
+        <!-- Account list -->
+        <div id="account-list" class="flex flex-wrap gap-2">
+          <span class="text-text-muted text-xs">加载中...</span>
+        </div>
       </div>
 
       <!-- Row 2: Search -->
@@ -300,6 +352,90 @@
         .catch(() => {
           btn.innerHTML = '❌';
           setTimeout(() => { btn.innerHTML = orig; }, 1500);
+        });
+    }
+
+    // ── Manage panel ──
+    function toggleManage() {
+      const panel = document.getElementById('manage-panel');
+      if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        loadAccounts();
+      } else {
+        panel.classList.add('hidden');
+      }
+    }
+
+    function loadAccounts() {
+      fetch('/api/accounts')
+        .then(r => r.json())
+        .then(data => {
+          const list = document.getElementById('account-list');
+          if (!data.accounts || data.accounts.length === 0) {
+            list.innerHTML = '<span class="text-text-muted text-xs">暂无推主</span>';
+            return;
+          }
+          list.innerHTML = data.accounts.map(a => {
+            const statusDot = a.active
+              ? '<span class="w-2 h-2 rounded-full bg-accent-green inline-block"></span>'
+              : '<span class="w-2 h-2 rounded-full bg-text-muted inline-block"></span>';
+            const toggleLabel = a.active ? '停用' : '启用';
+            const toggleClass = a.active
+              ? 'bg-red-50 text-accent-red hover:bg-red-100'
+              : 'bg-green-50 text-accent-green hover:bg-green-100';
+            return `<div class="pill flex items-center gap-2 px-3 py-1.5 bg-[#F0F0F0] text-text-primary text-xs">
+              ${statusDot}
+              <span class="font-medium">@${a.username}</span>
+              ${a.display_name ? '<span class="text-text-muted">' + a.display_name + '</span>' : ''}
+              <button onclick="toggleAccount('${a.username}', ${!a.active})" class="ml-1 pill px-2 py-0.5 text-[10px] ${toggleClass}">${toggleLabel}</button>
+            </div>`;
+          }).join('');
+        });
+    }
+
+    function addAccount() {
+      const username = document.getElementById('add-username').value.trim();
+      const displayName = document.getElementById('add-display-name').value.trim();
+      const status = document.getElementById('add-status');
+      if (!username) { status.textContent = '请输入用户名'; status.className = 'text-xs text-accent-red ml-2'; return; }
+
+      status.textContent = '添加中...';
+      status.className = 'text-xs text-text-muted ml-2';
+
+      fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, display_name: displayName })
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) {
+            document.getElementById('add-username').value = '';
+            document.getElementById('add-display-name').value = '';
+            status.textContent = '✅ 已添加 @' + d.account.username;
+            status.className = 'text-xs text-accent-green ml-2';
+            loadAccounts();
+            setTimeout(() => { status.textContent = ''; }, 3000);
+          } else {
+            status.textContent = '❌ ' + (d.error || '添加失败');
+            status.className = 'text-xs text-accent-red ml-2';
+          }
+        })
+        .catch(err => {
+          status.textContent = '❌ 网络错误';
+          status.className = 'text-xs text-accent-red ml-2';
+        });
+    }
+
+    function toggleAccount(username, active) {
+      fetch('/api/accounts/' + username, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active })
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) loadAccounts();
         });
     }
   </script>

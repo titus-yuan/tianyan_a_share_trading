@@ -62,6 +62,9 @@ def index():
     row = cur.fetchone()
     stats["latest"] = row["latest"].strftime("%Y-%m-%d %H:%M:%S") if row and row["latest"] else "—"
 
+    cur.execute("SELECT COUNT(*) as cnt FROM monitored_accounts WHERE active=true")
+    stats["accounts"] = cur.fetchone()["cnt"]
+
     cur.execute(
         "SELECT MAX(started_at) as last_sync FROM fetch_log WHERE status='ok'"
     )
@@ -195,6 +198,95 @@ def api_refresh():
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
+
+
+# ── Account Management ────────────────────────────────────
+
+
+@app.route("/api/accounts", methods=["GET"])
+def api_accounts_list():
+    """JSON API — list all monitored accounts."""
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        "SELECT id, username, display_name, active, created_at "
+        "FROM monitored_accounts ORDER BY username"
+    )
+    rows = cur.fetchall()
+    accounts = []
+    for r in rows:
+        accounts.append({
+            "id": r["id"],
+            "username": r["username"],
+            "display_name": r.get("display_name", ""),
+            "active": r["active"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        })
+    return jsonify({"accounts": accounts})
+
+
+@app.route("/api/accounts", methods=["POST"])
+def api_accounts_add():
+    """JSON API — add a new monitored account."""
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip().lstrip("@")
+    display_name = (data.get("display_name") or "").strip()
+
+    if not username:
+        return jsonify({"ok": False, "error": "username 不能为空"}), 400
+
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO monitored_accounts (username, display_name) "
+            "VALUES (%s, %s) "
+            "ON CONFLICT (username) DO UPDATE SET active=true, display_name=EXCLUDED.display_name "
+            "RETURNING id, username, display_name, active",
+            (username, display_name),
+        )
+        row = cur.fetchone()
+        db.commit()
+        return jsonify({
+            "ok": True,
+            "account": {
+                "id": row["id"],
+                "username": row["username"],
+                "display_name": row.get("display_name", ""),
+                "active": row["active"],
+            },
+        })
+    except Exception as e:
+        db.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/accounts/<username>", methods=["PATCH"])
+def api_accounts_toggle(username):
+    """JSON API — toggle active status of a monitored account."""
+    data = request.get_json(silent=True) or {}
+    active = data.get("active", None)
+    if active is None:
+        # Toggle
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "SELECT active FROM monitored_accounts WHERE username=%s",
+            (username,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"ok": False, "error": "未找到该推主"}), 404
+        active = not row["active"]
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        "UPDATE monitored_accounts SET active=%s WHERE username=%s",
+        (active, username),
+    )
+    db.commit()
+    return jsonify({"ok": True, "username": username, "active": active})
 
 
 # ── Main ───────────────────────────────────────────────────
