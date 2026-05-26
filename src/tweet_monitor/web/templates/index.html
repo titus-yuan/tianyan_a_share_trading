@@ -252,6 +252,9 @@
       <div class="text-text-muted text-xs mb-1 flex-shrink-0">来源</div>
       <div id="detail-source" class="text-white text-sm mb-4 flex-shrink-0"></div>
 
+      <div class="text-text-muted text-xs mb-1 flex-shrink-0">原始链接</div>
+      <div id="detail-original-link" class="text-sm mb-4 flex-shrink-0"></div>
+
       <div class="h-px bg-line-dark mb-4 flex-shrink-0"></div>
 
       <div class="text-text-muted text-xs mb-2 flex-shrink-0">全文</div>
@@ -316,6 +319,10 @@
           const t = data.posted_at ? data.posted_at.replace('T', ' ').substring(0, 16) : '—';
           document.getElementById('detail-time').textContent = t;
           document.getElementById('detail-source').textContent = data.source || '—';
+          // Original link
+          const originalUrl = 'https://x.com/' + data.username + '/status/' + data.tweet_id;
+          const origLinkEl = document.getElementById('detail-original-link');
+          origLinkEl.innerHTML = '<a href=\"' + originalUrl + '\" target=\"_blank\" class=\"inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 transition-colors\"><svg class=\"w-3.5 h-3.5\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14\"/></svg>在 X 中打开</a>';
           document.getElementById('detail-body').textContent = data.content || '';
           const link = document.getElementById('detail-link');
           if (data.raw_url) {
