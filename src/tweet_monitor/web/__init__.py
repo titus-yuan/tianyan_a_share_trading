@@ -8,6 +8,8 @@ from flask import Flask, g, render_template, request, jsonify
 
 from ..db import get_pg_conn
 
+from .dashboard import init_dashboard
+
 PER_PAGE = 20
 app = Flask(__name__)
 
@@ -50,23 +52,23 @@ def index():
     cur = db.cursor()
 
     # Stats
-    cur.execute("SELECT COUNT(*) as total FROM tweets")
+    cur.execute("SELECT COUNT(*) as total FROM nitter_tweets")
     stats = {"total": cur.fetchone()["total"]}
 
     cur.execute(
-        "SELECT COUNT(*) as cnt FROM tweets WHERE posted_at >= current_date"
+        "SELECT COUNT(*) as cnt FROM nitter_tweets WHERE posted_at >= current_date"
     )
     stats["today"] = cur.fetchone()["cnt"]
 
-    cur.execute("SELECT MAX(posted_at) as latest FROM tweets")
+    cur.execute("SELECT MAX(posted_at) as latest FROM nitter_tweets")
     row = cur.fetchone()
     stats["latest"] = row["latest"].strftime("%Y-%m-%d %H:%M:%S") if row and row["latest"] else "—"
 
-    cur.execute("SELECT COUNT(*) as cnt FROM monitored_accounts WHERE active=true")
+    cur.execute("SELECT COUNT(*) as cnt FROM nitter_accounts WHERE active=true")
     stats["accounts"] = cur.fetchone()["cnt"]
 
     cur.execute(
-        "SELECT MAX(started_at) as last_sync FROM fetch_log WHERE status='ok'"
+        "SELECT MAX(started_at) as last_sync FROM nitter_fetch_log WHERE status='ok'"
     )
     row = cur.fetchone()
     stats["last_sync"] = (
@@ -79,7 +81,7 @@ def index():
     offset = (page - 1) * PER_PAGE
 
     cur.execute(
-        "SELECT * FROM tweets ORDER BY posted_at DESC LIMIT %s OFFSET %s",
+        "SELECT * FROM nitter_tweets ORDER BY posted_at DESC LIMIT %s OFFSET %s",
         (PER_PAGE, offset),
     )
     tweets = cur.fetchall()
@@ -105,12 +107,12 @@ def tweets_page():
     offset = (page - 1) * PER_PAGE
 
     cur.execute(
-        "SELECT * FROM tweets ORDER BY posted_at DESC LIMIT %s OFFSET %s",
+        "SELECT * FROM nitter_tweets ORDER BY posted_at DESC LIMIT %s OFFSET %s",
         (PER_PAGE, offset),
     )
     tweets = cur.fetchall()
 
-    cur.execute("SELECT COUNT(*) as cnt FROM tweets")
+    cur.execute("SELECT COUNT(*) as cnt FROM nitter_tweets")
     total = cur.fetchone()["cnt"]
     total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
 
@@ -136,11 +138,11 @@ def search():
     offset = (page - 1) * PER_PAGE
     like = f"%{q}%"
 
-    cur.execute("SELECT COUNT(*) as cnt FROM tweets WHERE content LIKE %s", (like,))
+    cur.execute("SELECT COUNT(*) as cnt FROM nitter_tweets WHERE content LIKE %s", (like,))
     count = cur.fetchone()["cnt"]
 
     cur.execute(
-        "SELECT * FROM tweets WHERE content LIKE %s ORDER BY posted_at DESC LIMIT %s OFFSET %s",
+        "SELECT * FROM nitter_tweets WHERE content LIKE %s ORDER BY posted_at DESC LIMIT %s OFFSET %s",
         (like, PER_PAGE, offset),
     )
     tweets = cur.fetchall()
@@ -162,7 +164,7 @@ def tweet_detail(tweet_id):
     """JSON API — return full tweet for detail panel."""
     db = get_db()
     cur = db.cursor()
-    cur.execute("SELECT * FROM tweets WHERE id = %s", (tweet_id,))
+    cur.execute("SELECT * FROM nitter_tweets WHERE id = %s", (tweet_id,))
     row = cur.fetchone()
     if not row:
         return jsonify({"error": "not found"}), 404
@@ -210,7 +212,7 @@ def api_accounts_list():
     cur = db.cursor()
     cur.execute(
         "SELECT id, username, display_name, active, created_at "
-        "FROM monitored_accounts ORDER BY username"
+        "FROM nitter_accounts ORDER BY username"
     )
     rows = cur.fetchall()
     accounts = []
@@ -271,7 +273,7 @@ def api_accounts_toggle(username):
         db = get_db()
         cur = db.cursor()
         cur.execute(
-            "SELECT active FROM monitored_accounts WHERE username=%s",
+            "SELECT active FROM nitter_accounts WHERE username=%s",
             (username,),
         )
         row = cur.fetchone()
@@ -294,5 +296,7 @@ def api_accounts_toggle(username):
 
 def launch(host="0.0.0.0", port=5500):
     """Launch the web server."""
+    init_dashboard(app)
     print(f"📊 天演 Tianyan → http://{host}:{port}")
+    print(f"📊 Dash 仪表盘  → http://{host}:{port}/dashboard/")
     app.run(host=host, port=port, debug=False)

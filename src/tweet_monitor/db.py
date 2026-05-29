@@ -102,7 +102,7 @@ def insert_tweets(tweets: list[dict]) -> int:
             f"'{t.get('raw_url', '')}', md5('{c}'), '{dn}')"
         )
     sql = (
-        f"INSERT INTO tweets (tweet_id, username, content, posted_at, source, raw_url, content_hash, display_name) "
+        f"INSERT INTO nitter_tweets (tweet_id, username, content, posted_at, source, raw_url, content_hash, display_name) "
         f"VALUES {','.join(values)} "
         f"ON CONFLICT (username, tweet_id) DO NOTHING"
     )
@@ -113,7 +113,7 @@ def insert_tweets(tweets: list[dict]) -> int:
 def get_latest_tweet_id(username: str) -> int | None:
     """Get the most recent tweet_id for a username."""
     result = _sql(
-        f"SELECT tweet_id FROM tweets WHERE username='{username}' ORDER BY tweet_id DESC LIMIT 1"
+        f"SELECT tweet_id FROM nitter_tweets WHERE username='{username}' ORDER BY tweet_id DESC LIMIT 1"
     )
     if not result:
         return None
@@ -133,7 +133,7 @@ def insert_fetch_log(
     st = (started_at or datetime.now()).isoformat()
     ft = (finished_at or datetime.now()).isoformat()
     _sql_exec(
-        f"INSERT INTO fetch_log (source_type, instance_url, username, mode, tweets_new, tweets_total, "
+        f"INSERT INTO nitter_fetch_log (source_type, instance_url, username, mode, tweets_new, tweets_total, "
         f"status, error_msg, started_at, finished_at) "
         f"VALUES ('{source_type}', '{instance_url}', '{username}', '{mode}', "
         f"{tweets_new}, {tweets_total}, '{status}', '{err}', '{st}', '{ft}')"
@@ -143,7 +143,7 @@ def insert_fetch_log(
 def get_alive_instances() -> list[dict]:
     """Get alive Nitter instances."""
     result = _sql(
-        "SELECT url, latency_ms FROM nitter_instances WHERE status='alive' ORDER BY latency_ms ASC NULLS LAST"
+        "SELECT url, latency_ms FROM nitter_sources WHERE status='alive' ORDER BY latency_ms ASC NULLS LAST"
     )
     if not result:
         return []
@@ -171,7 +171,7 @@ def update_instance_status(url: str, status: str, latency_ms: int | None = None,
 def get_monitored_accounts(active_only: bool = True) -> list[str]:
     """Get list of monitored Twitter usernames."""
     where = "WHERE active=true" if active_only else ""
-    result = _sql(f"SELECT username FROM monitored_accounts {where} ORDER BY username")
+    result = _sql(f"SELECT username FROM nitter_accounts {where} ORDER BY username")
     if not result:
         return []
     return [line.strip() for line in result.split("\n") if line.strip()]

@@ -23,7 +23,7 @@ BOT_PC_DB_USER = os.getenv("BOT_PC_DB_USER", "titus")
 # Local PostgreSQL (for web app on Bot PC)
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
-DB_NAME = os.getenv("DB_NAME", "media_x_monitor")
+DB_NAME = os.getenv("DB_NAME", "Stocks_China_A")
 DB_USER = os.getenv("DB_USER", "titus")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
