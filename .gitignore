@@ -26,3 +26,8 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
