@@ -52,6 +52,7 @@ function StocksContent() {
   const [market, setMarket] = useState(sp.get("market") || "all");
   const [search, setSearch] = useState(sp.get("search") || "");
   const [page, setPage] = useState(parseInt(sp.get("page") || "1"));
+  const [searchTrigger, setSearchTrigger] = useState(0);
 
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -78,10 +79,10 @@ function StocksContent() {
     const u = new URLSearchParams({ market, page: String(page) });
     if (search) u.set("search", search);
     router.replace(`/market/stocks?${u}`, { scroll: false });
-  }, [market, search, page]); // eslint-disable-line
+  }, [market, search, page, searchTrigger]); // eslint-disable-line
 
   const handleTab = (key: string) => { setMarket(key); setPage(1); };
-  const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); fetchData(); };
+  const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setSearchTrigger((s) => s + 1); };
 
   return (
     <div className="p-4 max-w-full">

@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       ORDER BY d.stock_code
       LIMIT ${pageSize} OFFSET ${offset}
     `;
-    const dataRes = await pool.query(dataSQL, []);
+    const dataRes = await pool.query(dataSQL, searchParams_arr);
 
     const rows = dataRes.rows.map((r: any) => {
       const prevClose = parseFloat(r.prev_close) || parseFloat(r.close);
