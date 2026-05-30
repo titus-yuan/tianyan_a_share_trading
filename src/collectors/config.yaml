@@ -1,0 +1,25 @@
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: ""
+  database: "Stocks_China_A"
+
+akshare:
+  request_interval: 1.5
+  max_retries: 3
+  default_start_date: "1990-01-01"
+  default_end_date: "2026-12-31"
+
+collector:
+  default_source: "akshare"
+  default_adjustment: "qfq"
+  batch_size: 100
+  log_dir: "logs"
+  data_dir: "data"
+
+baostock:
+  request_interval: 0.5
+  max_retries: 3
+  default_start_date: "1990-01-01"
+  default_end_date: "2026-12-31"
