@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const { rows } = await pool.query(
-      `SELECT trade_date::text as date, is_open, week_day
+      `SELECT trade_date::text as date, is_open, week_day, holiday_name
        FROM trade_calendar
        WHERE trade_date BETWEEN $1 AND $2
        ORDER BY trade_date`,

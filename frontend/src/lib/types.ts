@@ -2,6 +2,7 @@ export interface CalendarDay {
   date: string;
   is_open: boolean;
   week_day: number;
+  holiday_name?: string | null;
 }
 
 export interface CalendarMonth {
